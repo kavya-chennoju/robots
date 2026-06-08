@@ -180,6 +180,9 @@ class Robot(AgentTool):
             "koch_follower": ("lerobot.robots.koch_follower", "KochFollowerConfig"),
             "openarm_follower": ("lerobot.robots.openarm_follower", "OpenArmFollowerConfig"),
             "bi_openarm_follower": ("lerobot.robots.bi_openarm_follower", "BiOpenArmFollowerConfig"),
+            # LeKiwi mobile manipulator (SO-arm + omni base) — on-robot host driver.
+            # Uses LeKiwiConfig (direct motor bus) rather than LeKiwiClientConfig (ZMQ remote).
+            "lekiwi": ("lerobot.robots.lekiwi", "LeKiwiConfig"),
             # Add more as needed
         }
 

@@ -11,12 +11,17 @@
 # Env knobs:
 #   ROBOT=lekiwi     robot model from the registry
 #   MODE=real        'real' drives the hardware; 'sim' runs MuJoCo (safe)
+#   PORT=/dev/ttyACM0  serial port for the motor bus (real hardware only;
+#                      auto-defaults to /dev/ttyACM0 in real mode)
 #   PEER_ID=...      override the device id (defaults to the bundle's device_id)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 ROBOT="${ROBOT:-lekiwi}"
 MODE="${MODE:-real}"
+PORT="${PORT:-}"
+# Real hardware needs the Feetech motor bus; default to the usual port.
+if [ "$MODE" = "real" ] && [ -z "$PORT" ]; then PORT="/dev/ttyACM0"; fi
 
 CREDS="${MESSAGING_CREDENTIALS_FILE:-}"
 if [ -z "$CREDS" ]; then
@@ -28,15 +33,19 @@ if [ -n "$CREDS" ] && [ -f "$CREDS" ]; then
   export DEVICE_CONNECT_ALLOW_INSECURE=false       # enforce mTLS
   export MESSAGING_BACKEND=zenoh
   PEER_ID="${PEER_ID:-$(python3 -c "import json;print(json.load(open('$CREDS'))['device_id'])")}"
-  echo "[run_device] REMOTE mTLS via $(basename "$CREDS")  (device_id=$PEER_ID, robot=$ROBOT, mode=$MODE)"
+  echo "[run_device] REMOTE mTLS via $(basename "$CREDS")  (device_id=$PEER_ID, robot=$ROBOT, mode=$MODE, port=${PORT:-n/a})"
 else
   PEER_ID="${PEER_ID:-$ROBOT-$(python3 -c "import os;print(os.urandom(3).hex())")}"
-  echo "[run_device] no creds bundle found -> LOCAL D2D mode  (peer_id=$PEER_ID, robot=$ROBOT, mode=$MODE)"
+  echo "[run_device] no creds bundle found -> LOCAL D2D mode  (peer_id=$PEER_ID, robot=$ROBOT, mode=$MODE, port=${PORT:-n/a})"
   echo "             drop your *.creds.json in $HERE to connect to the remote tenant."
 fi
 
+# Pass the serial port only when set (sim mode ignores it).
+PORT_KW=""
+[ -n "$PORT" ] && PORT_KW=", port='$PORT'"
+
 exec python3 -u -c "
 from strands_robots import Robot
-r = Robot('$ROBOT', mode='$MODE', peer_id='$PEER_ID')
+r = Robot('$ROBOT', mode='$MODE', peer_id='$PEER_ID'$PORT_KW)
 r.run()
 "
