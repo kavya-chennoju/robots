@@ -72,10 +72,10 @@ class RobotDeviceDriver(DeviceDriver):
         """
         return self._robot.start_task(
             instruction,
-            policy_provider,
-            policy_port or None,
-            "localhost",
-            duration,
+            policy_port=policy_port or None,
+            policy_host="localhost",
+            policy_provider=policy_provider,
+            duration=duration,
         )
 
     @rpc()
