@@ -43,7 +43,11 @@ def main() -> int:
     ap.add_argument("--instruction", default="drive forward")
     ap.add_argument("--policy-provider", default="mock", choices=["mock", "lerobot_local", "groot"])
     ap.add_argument("--duration", type=float, default=5.0)
-    ap.add_argument("--robot-name", default="", help="robot within the device (empty = first/only)")
+    ap.add_argument("--policy-port", type=int, default=0,
+                    help="policy server port. REQUIRED for real-hardware robots; for a "
+                         "mock test pass any non-zero value (mock ignores it).")
+    ap.add_argument("--robot-name", default="",
+                    help="robot within a sim device (sim only; empty = first/only)")
     a = ap.parse_args()
 
     if not a.target:
@@ -52,14 +56,18 @@ def main() -> int:
 
     from device_connect_agent_tools import connect, invoke_device
 
+    # Only send params the target's execute() accepts: real-hardware uses
+    # policy_port; sim uses robot_name. Send each only when set.
+    params = {"instruction": a.instruction, "policy_provider": a.policy_provider, "duration": a.duration}
+    if a.policy_port:
+        params["policy_port"] = a.policy_port
+    if a.robot_name:
+        params["robot_name"] = a.robot_name
+
     connect()
-    print(f"-> {a.target}: {a.instruction}  (policy={a.policy_provider}, duration={a.duration}s)")
-    result = invoke_device(a.target, "execute", {
-        "instruction": a.instruction,
-        "policy_provider": a.policy_provider,
-        "duration": a.duration,
-        "robot_name": a.robot_name,
-    })
+    print(f"-> {a.target}: {a.instruction}  (policy={a.policy_provider}, duration={a.duration}s"
+          + (f", policy_port={a.policy_port}" if a.policy_port else "") + ")")
+    result = invoke_device(a.target, "execute", params)
     print(json.dumps(result, indent=2, default=str))
     return 0
 
