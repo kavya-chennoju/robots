@@ -17,6 +17,13 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
+# Activate the project venv if present and not already active, so the script
+# works without the caller sourcing it first (and under systemd).
+if [ -z "${VIRTUAL_ENV:-}" ] && [ -f "$HERE/../../.venv/bin/activate" ]; then
+  # shellcheck disable=SC1091
+  . "$HERE/../../.venv/bin/activate"
+fi
+
 ROBOT="${ROBOT:-lekiwi}"
 MODE="${MODE:-real}"
 PORT="${PORT:-}"
