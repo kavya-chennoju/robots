@@ -253,23 +253,39 @@ class Robot(AgentTool):
 
             logger.info(f"Connecting to {self.robot}...")
 
-            # Handle robot connection using lerobot's error handling patterns
-            try:
-                if not self.robot.is_connected:
-                    await asyncio.to_thread(self.robot.connect, False)  # calibrate=False
-
-            except DeviceAlreadyConnectedError:
-                # This is expected and fine - robot is already connected
-                logger.info(f"{self.robot} was already connected")
-
-            except Exception as e:
-                # Check if it's the string version of "already connected" error
-                error_str = str(e).lower()
-                if "already connected" in error_str or "is already connected" in error_str:
-                    logger.info(f"{self.robot} connection already established")
-                else:
-                    # Re-raise if it's a different error
-                    raise e
+            # Handle robot connection using lerobot's error handling patterns.
+            # Serial-bus robots (e.g. the LeKiwi Feetech daisy-chain) occasionally
+            # drop a connect-time register write ("no status packet") on a random
+            # motor. Retry a few times so a single transient miss doesn't fail the
+            # whole task — a fresh connect almost always succeeds.
+            last_exc: Exception | None = None
+            for attempt in range(1, 5):
+                try:
+                    if not self.robot.is_connected:
+                        await asyncio.to_thread(self.robot.connect, False)  # calibrate=False
+                    last_exc = None
+                    break
+                except DeviceAlreadyConnectedError:
+                    logger.info(f"{self.robot} was already connected")
+                    last_exc = None
+                    break
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "already connected" in error_str or "is already connected" in error_str:
+                        logger.info(f"{self.robot} connection already established")
+                        last_exc = None
+                        break
+                    last_exc = e
+                    logger.warning(f"connect attempt {attempt}/4 failed ({e}); retrying...")
+                    # Drop any partial connection before retrying.
+                    try:
+                        if self.robot.is_connected:
+                            await asyncio.to_thread(self.robot.disconnect)
+                    except Exception:
+                        pass
+                    await asyncio.sleep(0.4)
+            if last_exc is not None:
+                raise last_exc
 
             # Final connection check
             if not self.robot.is_connected:
