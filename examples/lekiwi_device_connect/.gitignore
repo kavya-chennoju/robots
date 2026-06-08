@@ -1,0 +1,4 @@
+# NEVER commit credential bundles — they contain a private key.
+*.creds.json
+*.pem
+*.key
